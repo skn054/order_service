@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import com.example.order.dto.CartItemDto;
 import com.example.order.dto.CartResponseDto;
@@ -101,10 +102,15 @@ public class CartService {
 
 
 
-	private UserResponse getUser(Long userId) {
+    private UserResponse getUser(Long userId) {
 		String userUrl = "http://user-service/api/users/" + userId;
-    	UserResponse user = restTemplate.getForObject(userUrl, UserResponse.class);
-		return user;
+		try {
+			return restTemplate.getForObject(userUrl, UserResponse.class);
+		}
+		catch(HttpClientErrorException.NotFound ex) {
+			throw new ResourceNotFoundException("User not found with id: " + userId);
+		}
+    	
 	}
     
     public CartResponseDto getCart(Long userId) {

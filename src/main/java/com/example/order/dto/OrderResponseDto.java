@@ -47,7 +47,7 @@ public class OrderResponseDto {
 				.userId(order.getUserId())
 				.totalAmount(order.getTotalAmount())
 				.status(order.getStatus().name())
-//				.shippingAddress(address)
+				.shippingAddress(address)
 				.orderItemList(itemDtos)
 				.build();
 		

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.order.dto.OrderResponseDto;
@@ -44,8 +45,13 @@ public class OrderService {
     
     private UserResponse getUser(Long userId) {
 		String userUrl = "http://user-service/api/users/" + userId;
-    	UserResponse user = restTemplate.getForObject(userUrl, UserResponse.class);
-		return user;
+		try {
+			return restTemplate.getForObject(userUrl, UserResponse.class);
+		}
+		catch(HttpClientErrorException.NotFound ex) {
+			throw new ResourceNotFoundException("User not found with id: " + userId);
+		}
+    	
 	}
     
     
@@ -66,9 +72,7 @@ public class OrderService {
     	
     	UserResponse user = getUser(userId);
     	
-    	if(user == null) {
-    		throw new ResourceNotFoundException("User not found with id"+ userId);
-    	}
+    	
 		
 		Cart cart = cartRepository.findByUserId(user.getId()).orElseThrow(()-> new ResourceNotFoundException("Cart Empty for user with id"+ userId));
 		
@@ -92,7 +96,12 @@ public class OrderService {
 	        }
 			
 			long newStock = product.getStockQuantity() - item.getQuantity();
-			product.setStockQuantity(newStock);
+//			product.setStockQuantity(newStock);  // update product stock using network call.
+			
+			String productUrl = "http://product-service/api/products/" + product.getId() 
+								+ "/stock?quantity=" + item.getQuantity();
+			
+			restTemplate.patchForObject(productUrl, null, Void.class);
 			
 			/// No need to call productRepository.save(product) here!
 		    // Because the method is @Transactional, Hibernate's "dirty checking"
@@ -103,7 +112,7 @@ public class OrderService {
 			return OrderItem.builder()
 					.productId(product.getId())
 					.productName(product.getName())
-					.quantity(product.getStockQuantity())
+					.quantity(item.getQuantity())
 					.price(product.getPrice())
 					.build();
 			
@@ -122,7 +131,7 @@ public class OrderService {
 						.map(item ->  item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
 						.reduce(BigDecimal.ZERO,(a,b)->a.add(b));
 				
-//		order.setTotalAmount(totalPrice);
+		order.setTotalAmount(totalPrice);
 		Order placedOrder = orderRepository.save(order);
 		
 		cartRepository.delete(cart);
@@ -135,8 +144,13 @@ public class OrderService {
 
 	private ProductResponse getProduct(Long productId) {
 		String productUrl = "http://product-service/api/products/" + productId;
-		ProductResponse product = restTemplate.getForObject(productUrl, ProductResponse.class);
-		return product;
+		try {
+			return restTemplate.getForObject(productUrl, ProductResponse.class);
+		}
+		catch(HttpClientErrorException.NotFound ex) {
+			throw new ResourceNotFoundException("Product not found with id: " + productId);
+		}
+		
 	}
 
 }
